@@ -1,9 +1,9 @@
 import { embedMany } from 'ai';
 import { db } from '../db/client';
 import { chunks as chunksTable, type NewChunk } from '../db/schema';
+import { embeddingModel, embedProviderOptions } from '../embed/model';
 import type { Chunk } from './chunk';
 
-const EMBED_MODEL = 'openai/text-embedding-3-small';
 const BATCH = 96;
 
 /** Embed chunks and insert them. Returns the number of rows written. */
@@ -12,8 +12,9 @@ export async function embedAndStore(chunks: Chunk[]): Promise<number> {
   for (let i = 0; i < chunks.length; i += BATCH) {
     const slice = chunks.slice(i, i + BATCH);
     const { embeddings } = await embedMany({
-      model: EMBED_MODEL,
+      model: embeddingModel,
       values: slice.map((c) => c.content),
+      providerOptions: embedProviderOptions,
     });
     const rows: NewChunk[] = slice.map((c, j) => ({
       content: c.content,

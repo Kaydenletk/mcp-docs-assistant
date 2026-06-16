@@ -6,35 +6,39 @@
 
 ---
 
-## Current status: Plan 1 (Foundation) — code complete, DB steps pending
+## Current status: Plan 1 (Foundation) — ✅ COMPLETE, running end-to-end
 
-**✅ Done, tested, committed:**
+**✅ Done, tested, verified live:**
 - Next.js 16 + AI SDK v6 + Drizzle + Vitest scaffold
 - Ingestion pipeline: clone SDK repo @ `v1.29.0` → read `docs/*.md` + `README.md` → chunk by heading → embed → pgvector
 - Cited cosine retrieval (`lib/retrieve/search.ts`)
-- **9/9 unit tests pass** (chunk 5, read 3, citation 1); **typecheck clean**
+- **9/9 unit tests pass**; **typecheck clean**
+- **DB live**: `db:setup` (pgvector), `db:push` (`chunks` table) on Neon — done
+- **Ingest live**: **58 chunks** embedded + stored
+- **`ask` works**: ranked chunks with `[v1] …/blob/v1.29.0/…` citations; top hit for "how do I register a tool" = `server > Tools` @ 0.710
 
-**⏳ Blocked on credentials** (need a real Postgres + AI Gateway key):
-- `pnpm db:setup` — create the pgvector extension
-- `pnpm db:push` — create the `chunks` table
-- `pnpm ingest` — populate the store from the SDK docs
-- integration test + `pnpm ask` smoke
+### ⚠️ Provider pivot (deviation from original plan)
 
----
+Vercel AI Gateway was wired originally, but the gateway account could not run inference (every authed endpoint 401 — only the public `/v1/models` list worked, even after claiming $5 credits). **Pivoted embeddings to Google Gemini direct:**
 
-## To finish Plan 1 (~3 min)
+| Aspect | Original plan | Now |
+| --- | --- | --- |
+| Provider | Vercel AI Gateway | **Google Gemini** (`@ai-sdk/google`) |
+| Model | `openai/text-embedding-3-small` | `gemini-embedding-001` |
+| Dim | 1536 | 1536 (Matryoshka `outputDimensionality` truncation from 3072 — pgvector HNSW caps at 2000) |
+| Env var | `AI_GATEWAY_API_KEY` | `GOOGLE_GENERATIVE_AI_API_KEY` |
 
-1. Create a free Neon Postgres project → https://neon.com → copy the connection string.
-2. Fill `.env` (gitignored — safe):
-   ```
-   DATABASE_URL=postgresql://…?sslmode=require
-   AI_GATEWAY_API_KEY=…
-   ```
-3. Run:
-   ```bash
-   pnpm db:setup && pnpm db:push && pnpm ingest && pnpm test && pnpm ask "how do I register a tool on an MCP server?"
-   ```
-   Expect: ranked doc chunks with `[v1] … github.com/modelcontextprotocol/typescript-sdk/blob/v1.29.0/…` citations. That's the "it works" moment.
+Shared embedding config lives in `lib/embed/model.ts` (`embeddingModel` + `embedProviderOptions` + `EMBED_DIMENSIONS`), imported by `embed-store.ts`, `search.ts`, and `schema.ts` so model/dim never drift. To revert to Gateway later (Plan 5), swap only that file.
+
+### pnpm 11 build-script gotcha (fixed)
+
+pnpm 11 runs `pnpm install` before every `pnpm <script>` (`verify-deps-before-run`), which hard-failed on unapproved native build scripts (esbuild/sharp/unrs-resolver). Fixes committed: `package.json` `pnpm.onlyBuiltDependencies` + `.npmrc` `verify-deps-before-run=false`. If `pnpm <script>` still errors, run bins directly: `node_modules/.bin/tsx scripts/ingest.ts`, etc.
+
+### Re-run the pipeline
+
+```bash
+pnpm db:setup && pnpm db:push && pnpm ingest && pnpm test && pnpm ask "how do I register a tool on an MCP server?"
+```
 
 ---
 
@@ -62,7 +66,7 @@ The plan is self-contained (written for an engineer with zero context), so a new
 ## Key facts (don't re-derive)
 
 - Pinned SDK ref: **`v1.29.0`** (recent tags use the `v` prefix; verified via `git ls-remote --tags`).
-- Embeddings: `openai/text-embedding-3-small` (1536-dim) via Vercel AI Gateway (`embed` / `embedMany` from `ai`).
+- Embeddings: `gemini-embedding-001` (1536-dim, truncated via `outputDimensionality`) via Google Gemini direct (`@ai-sdk/google`); `embed` / `embedMany` from `ai`. Config centralized in `lib/embed/model.ts`. (Originally `openai/text-embedding-3-small` via Vercel AI Gateway — see provider-pivot note above.)
 - Store: Neon Postgres + pgvector; HNSW `vector_cosine_ops`; similarity = `1 - cosineDistance`.
 - Docs are ingested by **cloning the repo** (the docs site `ts.sdk.modelcontextprotocol.io` is TypeDoc — no `llms.txt`/sitemap, do not scrape). Clone lands in `.cache/mcp-sdk` (gitignored).
 - `chunks` columns: `content, heading, url, version ('v1'|'v2'), source ('sdk-docs'|'readme'|'spec'), embedding`.

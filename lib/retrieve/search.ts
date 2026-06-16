@@ -2,9 +2,8 @@ import { embed } from 'ai';
 import { cosineDistance, desc, gt, sql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { chunks } from '../db/schema';
+import { embeddingModel, embedProviderOptions } from '../embed/model';
 import { formatCitation } from './citation';
-
-const EMBED_MODEL = 'openai/text-embedding-3-small';
 
 export interface RetrievedChunk {
   content: string;
@@ -23,7 +22,11 @@ export async function search(
   limit = 8,
   minSimilarity = 0.3,
 ): Promise<RetrievedChunk[]> {
-  const { embedding } = await embed({ model: EMBED_MODEL, value: query });
+  const { embedding } = await embed({
+    model: embeddingModel,
+    value: query,
+    providerOptions: embedProviderOptions,
+  });
   const similarity = sql<number>`1 - (${cosineDistance(chunks.embedding, embedding)})`;
   const rows = await db
     .select({

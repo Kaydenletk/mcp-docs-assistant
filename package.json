@@ -16,6 +16,7 @@
     "ask": "tsx scripts/ask.ts"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.82",
     "@neondatabase/serverless": "^1.1.0",
     "ai": "^6.0.205",
     "drizzle-orm": "^0.45.2",
@@ -38,5 +39,12 @@
     "tsx": "^4.22.4",
     "typescript": "^5",
     "vitest": "^4.1.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }
