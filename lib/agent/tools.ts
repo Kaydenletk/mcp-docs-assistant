@@ -1,14 +1,21 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { hybridSearch } from '../retrieve/search';
+import { rerank } from '../retrieve/rerank';
 import { hasConfidentMatch } from './gate';
+
+/** Wider candidate pool to rerank down from, and the final count returned. */
+const CANDIDATES = 12;
+const FINAL = 6;
 
 /**
  * The one tool the agent has: semantic search over the ingested MCP SDK docs.
  *
+ * Pipeline: hybrid retrieve (vector + lexical, RRF) → refusal gate → LLM rerank.
  * Refusal is enforced here, not just in the prompt: when nothing clears the
  * confidence bar, we return `relevant: false` and no chunks, so the model has no
- * material to fabricate from and is steered to refuse.
+ * material to fabricate from and is steered to refuse. The gate runs BEFORE
+ * reranking, so a refusal costs no extra model call.
  */
 export const searchDocs = tool({
   description:
@@ -23,14 +30,15 @@ export const searchDocs = tool({
       ),
   }),
   execute: async ({ query, version }) => {
-    const results = await hybridSearch(query, { version, limit: 6 });
-    if (!hasConfidentMatch(results)) {
+    const candidates = await hybridSearch(query, { version, limit: CANDIDATES });
+    if (!hasConfidentMatch(candidates)) {
       return {
         relevant: false,
         note: 'No documentation chunks cleared the relevance threshold. The docs likely do not cover this — refuse rather than guess.',
         results: [],
       };
     }
+    const results = await rerank(query, candidates, FINAL);
     return {
       relevant: true,
       results: results.map((r) => ({

@@ -6,6 +6,10 @@ const searchMock = vi.fn();
 vi.mock('../lib/retrieve/search', () => ({
   hybridSearch: (...args: unknown[]) => searchMock(...args),
 }));
+// Rerank is an LLM call; stub it to identity so the gate logic stays under test.
+vi.mock('../lib/retrieve/rerank', () => ({
+  rerank: (_q: string, chunks: unknown[], topK: number) => Promise.resolve(chunks.slice(0, topK)),
+}));
 
 const { searchDocs } = await import('../lib/agent/tools');
 
