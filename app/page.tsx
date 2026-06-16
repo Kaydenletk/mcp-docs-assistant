@@ -2,9 +2,10 @@
 
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AssistantMessage } from '@/components/chat/AssistantMessage';
 import { Composer } from '@/components/chat/Composer';
+import { ModeToggle, type ChatMode } from '@/components/chat/ModeToggle';
 import { StarterPrompts } from '@/components/chat/StarterPrompts';
 import './chat.css';
 
@@ -26,6 +27,7 @@ export default function Home() {
     transport: new DefaultChatTransport({ api: '/api/chat' }),
   });
 
+  const [mode, setMode] = useState<ChatMode>('agent');
   const busy = status === 'submitted' || status === 'streaming';
   const empty = messages.length === 0;
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -34,7 +36,9 @@ export default function Home() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages]);
 
-  const ask = (text: string) => sendMessage({ text });
+  // The selected engine rides along as `mode` in the request body; the route
+  // dispatches to the AI SDK agent or the LangGraph Corrective-RAG graph.
+  const ask = (text: string) => sendMessage({ text }, { body: { mode } });
 
   return (
     <div className="app">
@@ -89,6 +93,9 @@ export default function Home() {
 
       <footer className="dock">
         <div className="dock__inner">
+          <div className="dock__bar">
+            <ModeToggle mode={mode} onChange={setMode} disabled={busy} />
+          </div>
           <Composer onSend={ask} onStop={stop} busy={busy} />
           <p className="dock__hint">
             Answers are grounded in the official docs. Not affiliated with the MCP project.
