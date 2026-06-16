@@ -138,3 +138,7 @@ pnpm mcp                        # MCP server
 ```
 
 Deploy + observability: see [DEPLOY.md](DEPLOY.md). Engineering log: [STATUS.md](STATUS.md).
+
+## License
+
+[MIT](LICENSE) © Khanh Le
