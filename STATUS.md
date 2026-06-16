@@ -58,7 +58,12 @@ Plan file: `docs/superpowers/plans/2026-06-15-foundation-ingestion-retrieval.md`
   - **Rendering:** pure, unit-tested helpers in `lib/ui/` — `citations.ts` (`parseCitations` lifts inline `[v2] heading — url` into chips; `splitInlineCode`), `blocks.ts` (`splitCodeBlocks` → styled `<pre>`). Components in `components/chat/` (`AssistantMessage`, `CitationChip`, `Composer`, `StarterPrompts`).
   - **Design:** technical-editorial, light "paper" direction (not dark-by-default); OKLCH tokens in `globals.css`, layout in `app/chat.css`; **version-coded citation chips** (v1 amber / v2 violet / spec teal) linking the exact GitHub source; designed hover/focus/active states; reduced-motion guard. Fixed-height grid with internally-scrolling thread (no composer overlap).
   - **Verified:** `next build` clean (`/` static, `/api/chat` dynamic); streaming confirmed via curl (tool call → text); Playwright screenshots of empty state + a live answer (code block + v1/v2 chips). **42/42 tests** (added `rrf`, `citations-ui`, `blocks`). Run: `pnpm dev`.
-- **Plan 4** — eval harness (golden set mined from the repo's `bug`/`question` issues, tagged v1/v2 + should-refuse) + benchmark vs Context7/DeepWiki.
+- **Plan 4** — ✅ **COMPLETE.** Eval harness + a real eval-driven fix.
+  - **Harness:** `eval/dataset.ts` (12-case golden set: answerable / version-pinned v1·v2 / protocol-spec / out-of-scope-refuse), `eval/metrics.ts` (pure, reuses `parseCitations`): `isRefusal` (decline + zero citations), `citedVersions`, `scoreCase`. `scripts/eval.ts` runs the real agent per case and prints a scorecard. Run: `pnpm eval`.
+  - **Metrics scored:** Overall pass, **Refusal accuracy**, Answer+citation, **Version-correctness**.
+  - **Finding → fix (the point of the harness):** first run = **83%** (10/12). Two answerable cases (`prompts`, `resources`) were **false-refused** — but retrieval was fine (top hits 0.70–0.72, well above the 0.45 gate), so the *model* was over-refusing by re-judging relevance itself. Fixed `prompt.ts` rule 3 to **defer refusal to the tool's `relevant` signal** (if `relevant:true`, must answer). Re-ran: **100%** (12/12), refusal accuracy still 100% (moat intact). This improvement is live in the app too.
+  - **Tests:** added `eval-metrics` (9). **51/51 unit tests.**
+  - ⏳ Optional extension: LLM-as-judge faithfulness (RAGAS-style) + a benchmark table vs Context7/DeepWiki.
 - **Plan 5** — deploy + publish the assistant itself as an MCP server to the official registry. Switch to OIDC auth via `vercel env pull`.
 
 ---
