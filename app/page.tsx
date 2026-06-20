@@ -99,7 +99,14 @@ export default function Home() {
           <div className="dock__bar">
             <ModeToggle
               mode={mode}
-              onChange={(m) => { setMode(m); localStorage.setItem('chatMode', m); }}
+              onChange={(m) => {
+                setMode(m);
+                try {
+                  localStorage.setItem('chatMode', m);
+                } catch {
+                  // ignore (storage unavailable)
+                }
+              }}
               disabled={busy}
             />
           </div>
