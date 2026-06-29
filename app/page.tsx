@@ -9,6 +9,13 @@ import { ModeToggle, type ChatMode } from '@/components/chat/ModeToggle';
 import { StarterPrompts } from '@/components/chat/StarterPrompts';
 import './chat.css';
 
+/** Valid chat modes — guards against stale/invalid localStorage values. */
+const CHAT_MODES = ['agent', 'graph'] as const;
+
+function isChatMode(value: unknown): value is ChatMode {
+  return typeof value === 'string' && (CHAT_MODES as readonly string[]).includes(value);
+}
+
 /** Concatenate the text parts of a UI message. */
 function messageText(m: UIMessage): string {
   return m.parts
@@ -27,7 +34,30 @@ export default function Home() {
     transport: new DefaultChatTransport({ api: '/api/chat' }),
   });
 
+  // Always render 'agent' on the server and first client paint to avoid a
+  // hydration mismatch; restore the persisted value after mount.
   const [mode, setMode] = useState<ChatMode>('agent');
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('chatMode');
+      if (isChatMode(stored)) {
+        setMode(stored);
+      }
+    } catch {
+      // localStorage can throw when disabled/full/private mode — safe to ignore.
+    }
+  }, []);
+
+  const handleModeChange = (next: ChatMode) => {
+    setMode(next);
+    try {
+      localStorage.setItem('chatMode', next);
+    } catch {
+      // Persisting failed — non-fatal, mode still works for this session.
+    }
+  };
+
   const busy = status === 'submitted' || status === 'streaming';
   const empty = messages.length === 0;
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -94,7 +124,7 @@ export default function Home() {
       <footer className="dock">
         <div className="dock__inner">
           <div className="dock__bar">
-            <ModeToggle mode={mode} onChange={setMode} disabled={busy} />
+            <ModeToggle mode={mode} onChange={handleModeChange} disabled={busy} />
           </div>
           <Composer onSend={ask} onStop={stop} busy={busy} />
           <p className="dock__hint">
